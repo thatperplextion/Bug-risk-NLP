@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { getMetrics, getRisks, queueGithubRepo, startScan, exportReport } from '../services/api'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area } from 'recharts'
@@ -28,6 +28,14 @@ export default function Overview({ onFileSelect, onProjectChange }) {
   const [scanned, setScanned] = useState(false)
   const [scanStatus, setScanStatus] = useState('')
 
+  // Load existing data when component mounts if there's a valid projectId
+  useEffect(() => {
+    const savedProjectId = localStorage.getItem('codesensex_project')
+    if (savedProjectId && savedProjectId !== 'demo') {
+      loadData(savedProjectId)
+    }
+  }, [])
+
   const updateProjectId = (newId) => {
     setProjectId(newId)
     localStorage.setItem('codesensex_project', newId)
@@ -38,6 +46,8 @@ export default function Overview({ onFileSelect, onProjectChange }) {
 
   const loadData = async (pid) => {
     const id = pid || projectId
+    if (!id || id === 'demo') return
+    
     setLoading(true)
     try {
       const m = await getMetrics(id, 50, 'cyclomatic_max:-1')
