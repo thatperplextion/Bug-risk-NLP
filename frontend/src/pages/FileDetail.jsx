@@ -16,36 +16,55 @@ const CustomTooltip = ({ active, payload }) => {
   return null
 }
 
-export default function FileDetail({ file, onBack }) {
+export default function FileDetail({ file, onBack, projectId }) {
   const [suggestions, setSuggestions] = useState([])
   const [fileSmells, setFileSmells] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [loadingSmells, setLoadingSmells] = useState(true)
+  const [loadingSuggestions, setLoadingSuggestions] = useState(true)
 
   useEffect(() => {
-    const load = async () => {
-      setLoading(true)
-      const projectId = localStorage.getItem('codesensex_project') || 'demo'
-      
-      // Fetch suggestions
-      const data = await getSuggestions(file.path.replace(/\//g, '_'), 5)
-      setSuggestions(data.suggestions || [])
-      
-      // Fetch smells for this file
+    const pid = projectId || localStorage.getItem('codesensex_project') || 'demo'
+    
+    // Load smells for this file
+    const loadSmells = async () => {
+      setLoadingSmells(true)
       try {
-        const smellsData = await getSmells(projectId)
+        const smellsData = await getSmells(pid)
         const smells = smellsData.items || []
-        // Filter smells for this specific file
-        const thisFileSmells = smells.filter(s => s.path === file.path)
+        // Filter smells for this specific file (handle both / and \ in paths)
+        const normalizedFilePath = (file.path || '').replace(/\\/g, '/').toLowerCase()
+        const thisFileSmells = smells.filter(s => {
+          const smellPath = (s.path || '').replace(/\\/g, '/').toLowerCase()
+          return smellPath === normalizedFilePath || smellPath.endsWith(normalizedFilePath)
+        })
         setFileSmells(thisFileSmells)
       } catch (err) {
         console.error('Failed to load smells:', err)
         setFileSmells([])
+      } finally {
+        setLoadingSmells(false)
       }
-      
-      setLoading(false)
     }
-    load()
-  }, [file])
+    
+    // Load suggestions
+    const loadSuggestions = async () => {
+      setLoadingSuggestions(true)
+      try {
+        // Encode the path for the API (replace / and \ with _)
+        const encodedPath = (file.path || '').replace(/[\/\\]/g, '_')
+        const data = await getSuggestions(encodedPath, 5)
+        setSuggestions(data.suggestions || [])
+      } catch (err) {
+        console.error('Failed to load suggestions:', err)
+        setSuggestions([])
+      } finally {
+        setLoadingSuggestions(false)
+      }
+    }
+    
+    loadSmells()
+    loadSuggestions()
+  }, [file, projectId])
 
   // Calculate SHAP-like feature importance from actual file metrics
   const shapValues = useMemo(() => {
@@ -157,7 +176,7 @@ export default function FileDetail({ file, onBack }) {
           <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
             <span className="text-2xl">🧪</span> Detected Issues
           </h2>
-          {loading ? (
+          {loadingSmells ? (
             <Loader />
           ) : fileSmells.length === 0 ? (
             <div className="text-center py-8 text-gray-400">
@@ -194,8 +213,13 @@ export default function FileDetail({ file, onBack }) {
         <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
           <span className="text-2xl">💡</span> AI Refactoring Suggestions
         </h2>
-        {loading ? (
+        {loadingSuggestions ? (
           <Loader />
+        ) : suggestions.length === 0 ? (
+          <div className="text-center py-8 text-gray-400">
+            <p className="text-4xl mb-2">✨</p>
+            <p>No refactoring suggestions at this time</p>
+          </div>
         ) : (
           <div className="space-y-4">
             {suggestions.map((s, i) => (

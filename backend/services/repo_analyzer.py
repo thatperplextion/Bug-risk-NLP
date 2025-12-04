@@ -379,42 +379,173 @@ class JavaScriptAnalyzer:
         """Detect code smells in JavaScript/TypeScript."""
         smells = []
         
-        # Long file
-        if len(lines) > 300:
-            severity = 4 if len(lines) > 500 else 3
+        # ===== HIGH SEVERITY ISSUES (4-5) =====
+        
+        # Deeply nested callbacks (callback hell)
+        callback_depth = 0
+        max_callback_depth = 0
+        for line in lines:
+            callback_depth += line.count('function(') + line.count('=>')
+            callback_depth -= line.count('});') + line.count('})') 
+            callback_depth = max(0, callback_depth)
+            max_callback_depth = max(max_callback_depth, callback_depth)
+        
+        if max_callback_depth > 4:
             smells.append(CodeSmell(
                 path=path,
-                type="Long File",
-                severity=severity,
+                type="Callback Hell",
+                severity=5,
                 line=1,
-                message=f"File has {len(lines)} lines (recommended: <300)",
-                suggestion="Consider splitting into multiple modules"
+                message=f"Deep callback nesting detected (depth: {max_callback_depth})",
+                suggestion="Refactor using async/await or Promises to flatten callback structure"
             ))
         
+        # Large functions (estimate by counting lines between function declarations)
+        func_pattern = re.compile(r'(function\s+\w+|const\s+\w+\s*=\s*(?:async\s*)?\([^)]*\)\s*=>|(?:async\s+)?\w+\s*\([^)]*\)\s*{)')
+        func_matches = list(func_pattern.finditer(content))
+        for i, match in enumerate(func_matches):
+            start_pos = match.end()
+            end_pos = func_matches[i + 1].start() if i + 1 < len(func_matches) else len(content)
+            func_content = content[start_pos:end_pos]
+            func_lines = func_content.count('\n')
+            if func_lines > 80:
+                line_num = content[:match.start()].count('\n') + 1
+                smells.append(CodeSmell(
+                    path=path,
+                    type="Long Function",
+                    severity=5 if func_lines > 150 else 4,
+                    line=line_num,
+                    message=f"Function has approximately {func_lines} lines (recommended: <50)",
+                    suggestion="Break down into smaller, single-responsibility functions"
+                ))
+        
+        # Complex ternary expressions (nested ternaries)
+        nested_ternary = re.findall(r'\?[^:]+\?', content)
+        if len(nested_ternary) > 0:
+            smells.append(CodeSmell(
+                path=path,
+                type="Nested Ternary",
+                severity=4,
+                line=1,
+                message=f"Found {len(nested_ternary)} nested ternary expressions",
+                suggestion="Replace nested ternaries with if-else statements or extract to functions"
+            ))
+        
+        # Hardcoded values (magic numbers/strings)
+        magic_numbers = re.findall(r'(?<!["\'])\b(?:(?<!\w)(?:[2-9]\d{2,}|1\d{3,})|0x[0-9a-fA-F]{4,})\b(?!["\'])', content)
+        if len(magic_numbers) > 5:
+            smells.append(CodeSmell(
+                path=path,
+                type="Magic Numbers",
+                severity=3,
+                line=1,
+                message=f"Found {len(magic_numbers)} potential magic numbers",
+                suggestion="Extract magic numbers to named constants for better readability"
+            ))
+        
+        # ===== MEDIUM SEVERITY ISSUES (3) =====
+        
+        # Empty catch blocks
+        empty_catch = re.findall(r'catch\s*\([^)]*\)\s*{\s*}', content)
+        if empty_catch:
+            smells.append(CodeSmell(
+                path=path,
+                type="Empty Catch Block",
+                severity=4,
+                line=1,
+                message=f"Found {len(empty_catch)} empty catch blocks",
+                suggestion="Handle errors properly or log them for debugging"
+            ))
+        
+        # Potential memory leaks (event listeners without cleanup)
+        add_listeners = len(re.findall(r'addEventListener\s*\(', content))
+        remove_listeners = len(re.findall(r'removeEventListener\s*\(', content))
+        if add_listeners > remove_listeners + 2:
+            smells.append(CodeSmell(
+                path=path,
+                type="Potential Memory Leak",
+                severity=4,
+                line=1,
+                message=f"Found {add_listeners} addEventListener calls but only {remove_listeners} removeEventListener",
+                suggestion="Ensure all event listeners are properly cleaned up in useEffect cleanup or componentWillUnmount"
+            ))
+        
+        # Duplicate string literals
+        string_literals = re.findall(r'["\']([^"\']{10,})["\']', content)
+        from collections import Counter
+        string_counts = Counter(string_literals)
+        duplicates = [(s, c) for s, c in string_counts.items() if c >= 3]
+        if duplicates:
+            smells.append(CodeSmell(
+                path=path,
+                type="Duplicate Strings",
+                severity=3,
+                line=1,
+                message=f"Found {len(duplicates)} string literals repeated 3+ times",
+                suggestion="Extract repeated strings to constants"
+            ))
+        
+        # Excessive use of any type (TypeScript)
+        if path.endswith('.ts') or path.endswith('.tsx'):
+            any_count = len(re.findall(r':\s*any\b', content))
+            if any_count > 3:
+                smells.append(CodeSmell(
+                    path=path,
+                    type="Excessive Any Type",
+                    severity=3,
+                    line=1,
+                    message=f"Found {any_count} uses of 'any' type",
+                    suggestion="Replace 'any' with proper type definitions for type safety"
+                ))
+        
+        # Commented out code
+        commented_code = len(re.findall(r'//\s*(const|let|var|function|if|for|while|return)\s+', content))
+        if commented_code > 5:
+            smells.append(CodeSmell(
+                path=path,
+                type="Commented Code",
+                severity=2,
+                line=1,
+                message=f"Found approximately {commented_code} lines of commented-out code",
+                suggestion="Remove commented code - use version control for history"
+            ))
+        
+        # ===== LOW SEVERITY ISSUES (1-2) =====
+        
         # Console.log statements (likely debug code)
-        console_matches = list(re.finditer(r'console\.(log|warn|error)', content))
-        if len(console_matches) > 5:
+        console_matches = list(re.finditer(r'console\.(log|warn|error|debug|info)', content))
+        if len(console_matches) > 3:
             smells.append(CodeSmell(
                 path=path,
                 type="Debug Code",
                 severity=2,
                 line=1,
                 message=f"Found {len(console_matches)} console statements",
-                suggestion="Remove or replace with proper logging"
+                suggestion="Remove debug statements or use proper logging library"
             ))
         
-        # TODO/FIXME comments
-        todo_pattern = re.compile(r'(TODO|FIXME|HACK|XXX)', re.IGNORECASE)
-        for i, line in enumerate(lines, 1):
-            if todo_pattern.search(line):
-                smells.append(CodeSmell(
-                    path=path,
-                    type="TODO Comment",
-                    severity=2,
-                    line=i,
-                    message="Unresolved TODO/FIXME comment",
-                    suggestion="Address or remove the TODO comment"
-                ))
+        # TODO/FIXME comments - only add once per file with count
+        todo_matches = list(re.finditer(r'(TODO|FIXME|HACK|XXX|BUG)', content, re.IGNORECASE))
+        if todo_matches:
+            smells.append(CodeSmell(
+                path=path,
+                type="Unresolved TODOs",
+                severity=2,
+                line=1,
+                message=f"Found {len(todo_matches)} TODO/FIXME comments",
+                suggestion="Address or create tickets for unresolved TODOs"
+            ))
+        
+        # Long file (only flag if really long)
+        if len(lines) > 500:
+            smells.append(CodeSmell(
+                path=path,
+                type="Very Long File",
+                severity=3 if len(lines) > 800 else 2,
+                line=1,
+                message=f"File has {len(lines)} lines (recommended: <400)",
+                suggestion="Consider splitting into multiple modules by responsibility"
+            ))
         
         return smells
 
