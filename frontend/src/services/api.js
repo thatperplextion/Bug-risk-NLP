@@ -16,6 +16,13 @@ export async function getRisks(projectId, tier, top = 10) {
   return res.json();
 }
 
+export async function getSmells(projectId, severity) {
+  const url = new URL(`${BASE_URL}/smells/${projectId}`);
+  if (severity) url.searchParams.set('severity', String(severity));
+  const res = await fetch(url);
+  return res.json();
+}
+
 export async function queueGithubRepo(sourceRef) {
   const res = await fetch(`${BASE_URL}/upload/repo`, {
     method: 'POST',

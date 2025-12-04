@@ -1,4 +1,46 @@
+# CodeSenseX Backend Dependencies
+
+# Core Framework
 fastapi==0.115.0
-uvicorn==0.30.0
+uvicorn[standard]==0.30.0
 pydantic==2.9.0
 python-multipart==0.0.9
+
+# Database
+motor==3.5.1  # Async MongoDB driver
+pymongo==4.8.0
+
+# ML & Analysis
+scikit-learn==1.5.1
+xgboost==2.1.0
+numpy==1.26.4
+pandas==2.2.2
+shap==0.45.0
+
+# NLP
+transformers==4.44.0
+# torch==2.4.0  # Uncomment if using GPU-based models
+
+# Code Analysis
+radon==6.0.1  # Cyclomatic complexity, Halstead metrics
+
+# Git Operations
+gitpython==3.1.43
+
+# Report Generation
+reportlab==4.2.2
+
+# API & HTTP
+httpx==0.27.0
+
+# Environment & Config
+python-dotenv==1.0.1
+
+# Development (optional)
+# pytest==8.3.2
+# pytest-asyncio==0.24.0
+# black==24.8.0
+# ruff==0.6.2
+
+# Optional: LLM Integration
+# openai==1.42.0

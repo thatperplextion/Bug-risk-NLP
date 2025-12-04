@@ -49,6 +49,23 @@ export default function Overview({ onFileSelect }) {
     setLoading(false)
   }
 
+  const handleExportReport = async () => {
+    try {
+      const blob = await exportReport(projectId, 'pdf')
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `codesensex-report-${projectId}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      console.error('Export failed:', err)
+      alert('Export failed. Please try again.')
+    }
+  }
+
   const riskByFolder = risks.map(r => ({
     folder: r.path.split('/').slice(0, -1).join('/') || '/',
     risk: r.risk_score
@@ -314,7 +331,7 @@ export default function Overview({ onFileSelect }) {
                   <p className="text-5xl font-black text-white">{Math.round(summary.avg_risk * 0.8 + metrics.length * 0.5)}h</p>
                   <p className="text-gray-400 text-sm mt-1">Estimated remediation time</p>
                 </div>
-                <GradientButton size="lg">
+                <GradientButton size="lg" onClick={handleExportReport}>
                   📥 Export Report
                 </GradientButton>
               </div>
