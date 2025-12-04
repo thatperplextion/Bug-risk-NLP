@@ -1,12 +1,15 @@
 import React from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
+import Overview from './pages/Overview'
+import BackendStatus from './components/BackendStatus'
 
 function App(){
   return (
-    <div className="p-6">
+    <div className="p-6 space-y-4">
       <h1 className="text-2xl font-bold">CodeSenseX</h1>
-      <p className="mt-2">Upload a GitHub repo or ZIP and start a scan.</p>
+      <BackendStatus />
+      <Overview />
     </div>
   )
 }
