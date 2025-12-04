@@ -9,12 +9,13 @@ from controllers.risks_controller import router as risks_router
 from controllers.smells_controller import router as smells_router
 from controllers.suggestions_controller import router as suggestions_router
 from controllers.report_controller import router as report_router
-from services.db import db
+from services.db import get_database
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Manage database connection lifecycle."""
+    db = get_database()
     # Startup: connect to database
     await db.connect()
     yield

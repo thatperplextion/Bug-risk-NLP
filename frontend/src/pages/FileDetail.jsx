@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { motion } from 'framer-motion'
-import { getSuggestions } from '../services/api'
+import { getSuggestions, getSmells } from '../services/api'
 import { GlassCard, GradientButton, RiskBadge, Loader } from '../components/ui'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 
@@ -18,26 +18,62 @@ const CustomTooltip = ({ active, payload }) => {
 
 export default function FileDetail({ file, onBack }) {
   const [suggestions, setSuggestions] = useState([])
+  const [fileSmells, setFileSmells] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     const load = async () => {
       setLoading(true)
+      const projectId = localStorage.getItem('codesensex_project') || 'demo'
+      
+      // Fetch suggestions
       const data = await getSuggestions(file.path.replace(/\//g, '_'), 5)
       setSuggestions(data.suggestions || [])
+      
+      // Fetch smells for this file
+      try {
+        const smellsData = await getSmells(projectId)
+        const smells = smellsData.items || []
+        // Filter smells for this specific file
+        const thisFileSmells = smells.filter(s => s.path === file.path)
+        setFileSmells(thisFileSmells)
+      } catch (err) {
+        console.error('Failed to load smells:', err)
+        setFileSmells([])
+      }
+      
       setLoading(false)
     }
     load()
   }, [file])
 
-  // Mock SHAP values for demonstration
-  const shapValues = [
-    { feature: 'cyclomatic_max', value: 0.23 },
-    { feature: 'churn_30d', value: 0.18 },
-    { feature: 'dup_ratio', value: 0.12 },
-    { feature: 'nesting_max', value: 0.09 },
-    { feature: 'loc', value: 0.07 }
-  ]
+  // Calculate SHAP-like feature importance from actual file metrics
+  const shapValues = useMemo(() => {
+    const values = []
+    
+    // Add actual metrics as features if they exist
+    if (file.cyclomatic_max) {
+      values.push({ feature: 'cyclomatic_max', value: Math.min(file.cyclomatic_max / 50, 1) })
+    }
+    if (file.churn_30d) {
+      values.push({ feature: 'churn_30d', value: Math.min(file.churn_30d / 100, 1) })
+    }
+    if (file.dup_ratio) {
+      values.push({ feature: 'dup_ratio', value: file.dup_ratio })
+    }
+    if (file.nesting_max) {
+      values.push({ feature: 'nesting_max', value: Math.min(file.nesting_max / 10, 1) })
+    }
+    if (file.loc) {
+      values.push({ feature: 'loc', value: Math.min(file.loc / 1000, 1) })
+    }
+    if (file.fn_count) {
+      values.push({ feature: 'fn_count', value: Math.min(file.fn_count / 50, 1) })
+    }
+    
+    // Sort by value descending and take top 5
+    return values.sort((a, b) => b.value - a.value).slice(0, 5)
+  }, [file])
 
   const priorityColors = {
     High: 'border-red-500/30 bg-red-500/10',
@@ -73,19 +109,19 @@ export default function FileDetail({ file, onBack }) {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <GlassCard delay={0.1} className="text-center">
           <p className="text-gray-400 text-sm">Risk Score</p>
-          <p className="text-3xl font-bold text-red-400">{file.risk_score || 65}</p>
+          <p className="text-3xl font-bold text-red-400">{file.risk_score ?? 'N/A'}</p>
         </GlassCard>
         <GlassCard delay={0.2} className="text-center">
           <p className="text-gray-400 text-sm">Lines of Code</p>
-          <p className="text-3xl font-bold text-cyan-400">{file.loc || 420}</p>
+          <p className="text-3xl font-bold text-cyan-400">{file.loc ?? 'N/A'}</p>
         </GlassCard>
         <GlassCard delay={0.3} className="text-center">
           <p className="text-gray-400 text-sm">Complexity</p>
-          <p className="text-3xl font-bold text-orange-400">{file.cyclomatic_max || 14}</p>
+          <p className="text-3xl font-bold text-orange-400">{file.cyclomatic_max ?? 'N/A'}</p>
         </GlassCard>
         <GlassCard delay={0.4} className="text-center">
           <p className="text-gray-400 text-sm">Functions</p>
-          <p className="text-3xl font-bold text-emerald-400">{file.fn_count || 19}</p>
+          <p className="text-3xl font-bold text-emerald-400">{file.fn_count ?? 'N/A'}</p>
         </GlassCard>
       </div>
 
@@ -121,30 +157,35 @@ export default function FileDetail({ file, onBack }) {
           <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
             <span className="text-2xl">🧪</span> Detected Issues
           </h2>
-          <div className="space-y-3">
-            {[
-              { type: 'Long Function', severity: 4, line: 45, message: 'Function exceeds 50 lines' },
-              { type: 'High Complexity', severity: 5, line: 88, message: 'Cyclomatic complexity > 10' },
-              { type: 'Deep Nesting', severity: 3, line: 102, message: 'Nesting depth exceeds 4 levels' }
-            ].map((smell, i) => (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.1 * i }}
-                className="flex items-center justify-between p-3 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 transition-colors"
-              >
-                <div className="flex items-center gap-3">
-                  <span className={`w-2 h-2 rounded-full ${smell.severity >= 4 ? 'bg-red-500' : 'bg-yellow-500'}`}></span>
-                  <div>
-                    <p className="font-medium text-white">{smell.type}</p>
-                    <p className="text-sm text-gray-400">Line {smell.line}: {smell.message}</p>
+          {loading ? (
+            <Loader />
+          ) : fileSmells.length === 0 ? (
+            <div className="text-center py-8 text-gray-400">
+              <p className="text-4xl mb-2">✅</p>
+              <p>No issues detected in this file</p>
+            </div>
+          ) : (
+            <div className="space-y-3 max-h-80 overflow-y-auto">
+              {fileSmells.map((smell, i) => (
+                <motion.div
+                  key={i}
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.1 * i }}
+                  className="flex items-center justify-between p-3 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className={`w-2 h-2 rounded-full ${smell.severity >= 4 ? 'bg-red-500' : smell.severity >= 3 ? 'bg-orange-500' : 'bg-yellow-500'}`}></span>
+                    <div>
+                      <p className="font-medium text-white">{smell.type}</p>
+                      <p className="text-sm text-gray-400">Line {smell.line}: {smell.message}</p>
+                    </div>
                   </div>
-                </div>
-                <span className="text-sm text-gray-500">Severity {smell.severity}/5</span>
-              </motion.div>
-            ))}
-          </div>
+                  <span className="text-sm text-gray-500">Severity {smell.severity}/5</span>
+                </motion.div>
+              ))}
+            </div>
+          )}
         </GlassCard>
       </div>
 

@@ -19,34 +19,80 @@ const CustomTooltip = ({ active, payload, label }) => {
 }
 
 export default function Overview({ onFileSelect }) {
-  const [projectId, setProjectId] = useState('demo')
+  const [projectId, setProjectId] = useState(() => localStorage.getItem('codesensex_project') || 'demo')
   const [metrics, setMetrics] = useState([])
   const [risks, setRisks] = useState([])
   const [summary, setSummary] = useState({ avg_risk: 0, high: 0, critical: 0 })
-  const [sourceRef, setSourceRef] = useState('https://github.com/org/repo')
+  const [sourceRef, setSourceRef] = useState('')
   const [loading, setLoading] = useState(false)
   const [scanned, setScanned] = useState(false)
+  const [scanStatus, setScanStatus] = useState('')
 
-  const loadData = async () => {
+  const loadData = async (pid) => {
+    const id = pid || projectId
     setLoading(true)
-    const m = await getMetrics(projectId, 50, 'cyclomatic_max:-1')
-    const r = await getRisks(projectId, undefined, 10)
-    setMetrics(m.metrics || [])
-    setRisks(r.items || [])
-    setSummary(r.summary || { avg_risk: 0, high: 0, critical: 0 })
-    setLoading(false)
-    setScanned(true)
+    try {
+      const m = await getMetrics(id, 50, 'cyclomatic_max:-1')
+      const r = await getRisks(id, undefined, 10)
+      setMetrics(m.metrics || [])
+      setRisks(r.items || [])
+      setSummary(r.summary || { avg_risk: 0, high: 0, critical: 0 })
+      setScanned(true)
+    } catch (err) {
+      console.error('Load data error:', err)
+    } finally {
+      setLoading(false)
+    }
   }
 
   const queueAndScan = async () => {
-    setLoading(true)
-    const queued = await queueGithubRepo(sourceRef)
-    if (queued.project_id) {
-      setProjectId(queued.project_id)
-      await startScan(queued.project_id)
-      await loadData()
+    if (!sourceRef || !sourceRef.trim()) {
+      setScanStatus('Please enter a GitHub URL')
+      setTimeout(() => setScanStatus(''), 3000)
+      return
     }
-    setLoading(false)
+    
+    setLoading(true)
+    setScanStatus('Queuing repository...')
+    try {
+      console.log('Queueing repo:', sourceRef)
+      const queued = await queueGithubRepo(sourceRef.trim())
+      console.log('Queue response:', queued)
+      
+      if (queued.error) {
+        throw new Error(queued.error)
+      }
+      
+      if (queued.project_id) {
+        setProjectId(queued.project_id)
+        localStorage.setItem('codesensex_project', queued.project_id)
+        setScanStatus('Cloning and analyzing repository... This may take 1-2 minutes.')
+        
+        console.log('Starting scan for project:', queued.project_id)
+        const scanResult = await startScan(queued.project_id)
+        console.log('Scan result:', scanResult)
+        
+        if (scanResult.error) {
+          throw new Error(scanResult.error)
+        }
+        
+        const filesFound = scanResult.files_analyzed || scanResult.summary?.total_files || 0
+        const smellsFound = scanResult.smells_found || scanResult.summary?.total_smells || 0
+        
+        setScanStatus(`✓ Found ${filesFound} files, ${smellsFound} issues. Loading results...`)
+        await loadData(queued.project_id)
+        setScanStatus(`✓ Analysis complete! ${filesFound} files analyzed.`)
+        setTimeout(() => setScanStatus(''), 5000)
+      } else {
+        throw new Error('No project ID returned')
+      }
+    } catch (err) {
+      console.error('Scan error:', err)
+      setScanStatus(`❌ Error: ${err.message}`)
+      setTimeout(() => setScanStatus(''), 8000)
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handleExportReport = async () => {
@@ -109,7 +155,7 @@ export default function Overview({ onFileSelect }) {
             <GradientButton onClick={queueAndScan} size="md">
               🚀 Scan Repository
             </GradientButton>
-            <GradientButton onClick={loadData} variant="secondary" size="md">
+            <GradientButton onClick={() => loadData(projectId)} variant="secondary" size="md">
               🔄 Refresh
             </GradientButton>
           </div>
@@ -117,10 +163,16 @@ export default function Overview({ onFileSelect }) {
         <div className="mt-4 flex items-center gap-4 text-sm text-gray-400">
           <span>Project ID: <code className="text-cyan-400">{projectId}</code></span>
           {scanned && <span className="text-emerald-400">✓ Scanned</span>}
+          {scanStatus && <span className="text-yellow-400 animate-pulse">{scanStatus}</span>}
         </div>
       </GlassCard>
 
-      {loading && <Loader />}
+      {loading && (
+        <div className="text-center py-8">
+          <Loader />
+          {scanStatus && <p className="mt-4 text-gray-400">{scanStatus}</p>}
+        </div>
+      )}
 
       <AnimatePresence>
         {scanned && !loading && (

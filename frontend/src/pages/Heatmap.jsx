@@ -1,39 +1,7 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { motion } from 'framer-motion'
-import { GlassCard, RiskBadge } from '../components/ui'
-
-// Mock heatmap data organized by folder
-const HEATMAP_DATA = {
-  'src': {
-    risk: 72,
-    children: {
-      'auth.py': { risk: 81, tier: 'Critical', loc: 420 },
-      'utils.py': { risk: 68, tier: 'High', loc: 280 },
-      'config.py': { risk: 25, tier: 'Low', loc: 45 }
-    }
-  },
-  'src/api': {
-    risk: 55,
-    children: {
-      'handler.py': { risk: 58, tier: 'Medium', loc: 190 },
-      'routes.py': { risk: 52, tier: 'Medium', loc: 150 }
-    }
-  },
-  'src/models': {
-    risk: 35,
-    children: {
-      'user.py': { risk: 40, tier: 'Medium', loc: 120 },
-      'base.py': { risk: 30, tier: 'Low', loc: 80 }
-    }
-  },
-  'tests': {
-    risk: 20,
-    children: {
-      'test_auth.py': { risk: 18, tier: 'Low', loc: 200 },
-      'test_api.py': { risk: 22, tier: 'Low', loc: 180 }
-    }
-  }
-}
+import { getRisks } from '../services/api'
+import { GlassCard, RiskBadge, Loader } from '../components/ui'
 
 function getRiskColor(risk) {
   if (risk >= 80) return 'from-red-600 to-red-500'
@@ -49,11 +17,113 @@ function getRiskBgColor(risk) {
   return 'bg-emerald-500/20 border-emerald-500/30'
 }
 
-export default function Heatmap() {
-  const [selectedFolder, setSelectedFolder] = useState(null)
+function getTier(risk) {
+  if (risk >= 80) return 'Critical'
+  if (risk >= 60) return 'High'
+  if (risk >= 40) return 'Medium'
+  return 'Low'
+}
 
-  const folders = Object.entries(HEATMAP_DATA)
-  const maxRisk = Math.max(...folders.map(([, data]) => data.risk))
+export default function Heatmap({ projectId }) {
+  const [risks, setRisks] = useState([])
+  const [selectedFolder, setSelectedFolder] = useState(null)
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    if (projectId) {
+      loadRisks()
+    }
+  }, [projectId])
+
+  const loadRisks = async () => {
+    setLoading(true)
+    try {
+      const data = await getRisks(projectId, null, 100)
+      setRisks(data.items || [])
+    } catch (err) {
+      console.error('Failed to load risks:', err)
+    }
+    setLoading(false)
+  }
+
+  // Build folder structure from risks
+  const heatmapData = useMemo(() => {
+    const folders = {}
+    
+    risks.forEach(risk => {
+      const path = risk.path || ''
+      const parts = path.split('/')
+      const fileName = parts.pop()
+      const folderPath = parts.join('/') || 'root'
+      
+      if (!folders[folderPath]) {
+        folders[folderPath] = {
+          risk: 0,
+          children: {}
+        }
+      }
+      
+      folders[folderPath].children[fileName] = {
+        risk: risk.risk_score || 0,
+        tier: risk.tier || getTier(risk.risk_score || 0),
+        loc: risk.loc || 0,
+        path: risk.path
+      }
+    })
+    
+    // Calculate folder average risks
+    Object.keys(folders).forEach(folder => {
+      const children = Object.values(folders[folder].children)
+      if (children.length > 0) {
+        folders[folder].risk = Math.round(
+          children.reduce((acc, c) => acc + c.risk, 0) / children.length
+        )
+      }
+    })
+    
+    return folders
+  }, [risks])
+
+  const folders = Object.entries(heatmapData)
+  const maxRisk = folders.length > 0 ? Math.max(...folders.map(([, data]) => data.risk), 1) : 1
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader size="lg" />
+      </div>
+    )
+  }
+
+  // Empty state
+  if (!projectId || risks.length === 0) {
+    return (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="space-y-8"
+      >
+        <div className="text-center py-4">
+          <h1 className="text-4xl font-black gradient-text glow-text mb-2">Risk Heatmap</h1>
+          <p className="text-gray-400">Visual overview of risk distribution across folders</p>
+        </div>
+
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="text-center py-20"
+        >
+          <div className="text-8xl mb-6 animate-float">🗺️</div>
+          <h2 className="text-2xl font-bold text-gray-300 mb-2">No Risk Data</h2>
+          <p className="text-gray-500 max-w-md mx-auto">
+            {projectId 
+              ? "No risk data available for this project yet."
+              : "Scan a repository from the Overview page to see the risk heatmap."}
+          </p>
+        </motion.div>
+      </motion.div>
+    )
+  }
 
   return (
     <motion.div
@@ -109,7 +179,7 @@ export default function Heatmap() {
       </GlassCard>
 
       {/* Selected Folder Details */}
-      {selectedFolder && (
+      {selectedFolder && heatmapData[selectedFolder] && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -127,7 +197,7 @@ export default function Heatmap() {
               </button>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {Object.entries(HEATMAP_DATA[selectedFolder].children).map(([file, data], i) => (
+              {Object.entries(heatmapData[selectedFolder].children).map(([file, data], i) => (
                 <motion.div
                   key={file}
                   initial={{ opacity: 0, x: -20 }}

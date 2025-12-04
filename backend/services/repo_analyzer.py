@@ -1,0 +1,632 @@
+"""
+Repository Analyzer - Clones and analyzes GitHub repositories for code quality metrics.
+"""
+
+import os
+import ast
+import tempfile
+import shutil
+import subprocess
+from pathlib import Path
+from typing import Dict, List, Any, Optional
+from dataclasses import dataclass, asdict
+import re
+
+
+@dataclass
+class FileMetrics:
+    path: str
+    loc: int
+    sloc: int  # Source lines of code (non-blank, non-comment)
+    cyclomatic_max: int
+    cyclomatic_avg: float
+    fn_count: int
+    class_count: int
+    nesting_max: int
+    dup_ratio: float
+    comment_ratio: float
+    language: str
+
+
+@dataclass 
+class CodeSmell:
+    path: str
+    type: str
+    severity: int  # 1-5
+    line: int
+    message: str
+    suggestion: str
+
+
+@dataclass
+class RiskScore:
+    path: str
+    risk_score: int  # 0-100
+    tier: str  # Critical, High, Medium, Low
+    top_features: List[str]
+
+
+class CyclomaticComplexityVisitor(ast.NodeVisitor):
+    """Calculate cyclomatic complexity for Python functions."""
+    
+    def __init__(self):
+        self.complexity = 1  # Base complexity
+        
+    def visit_If(self, node):
+        self.complexity += 1
+        self.generic_visit(node)
+        
+    def visit_For(self, node):
+        self.complexity += 1
+        self.generic_visit(node)
+        
+    def visit_While(self, node):
+        self.complexity += 1
+        self.generic_visit(node)
+        
+    def visit_ExceptHandler(self, node):
+        self.complexity += 1
+        self.generic_visit(node)
+        
+    def visit_With(self, node):
+        self.complexity += 1
+        self.generic_visit(node)
+        
+    def visit_Assert(self, node):
+        self.complexity += 1
+        self.generic_visit(node)
+        
+    def visit_comprehension(self, node):
+        self.complexity += 1
+        self.generic_visit(node)
+        
+    def visit_BoolOp(self, node):
+        # Each 'and' or 'or' adds to complexity
+        self.complexity += len(node.values) - 1
+        self.generic_visit(node)
+        
+    def visit_IfExp(self, node):  # Ternary operator
+        self.complexity += 1
+        self.generic_visit(node)
+
+
+class NestingVisitor(ast.NodeVisitor):
+    """Calculate maximum nesting depth."""
+    
+    def __init__(self):
+        self.max_depth = 0
+        self.current_depth = 0
+        
+    def _enter_block(self):
+        self.current_depth += 1
+        self.max_depth = max(self.max_depth, self.current_depth)
+        
+    def _exit_block(self):
+        self.current_depth -= 1
+        
+    def visit_If(self, node):
+        self._enter_block()
+        self.generic_visit(node)
+        self._exit_block()
+        
+    def visit_For(self, node):
+        self._enter_block()
+        self.generic_visit(node)
+        self._exit_block()
+        
+    def visit_While(self, node):
+        self._enter_block()
+        self.generic_visit(node)
+        self._exit_block()
+        
+    def visit_With(self, node):
+        self._enter_block()
+        self.generic_visit(node)
+        self._exit_block()
+        
+    def visit_Try(self, node):
+        self._enter_block()
+        self.generic_visit(node)
+        self._exit_block()
+        
+    def visit_FunctionDef(self, node):
+        self._enter_block()
+        self.generic_visit(node)
+        self._exit_block()
+        
+    def visit_AsyncFunctionDef(self, node):
+        self._enter_block()
+        self.generic_visit(node)
+        self._exit_block()
+
+
+class PythonAnalyzer:
+    """Analyze Python files for metrics and code smells."""
+    
+    @staticmethod
+    def analyze_file(file_path: Path, relative_path: str) -> tuple[Optional[FileMetrics], List[CodeSmell]]:
+        """Analyze a single Python file."""
+        try:
+            content = file_path.read_text(encoding='utf-8', errors='ignore')
+            lines = content.split('\n')
+            
+            # Basic line counts
+            loc = len(lines)
+            sloc = sum(1 for line in lines if line.strip() and not line.strip().startswith('#'))
+            comment_lines = sum(1 for line in lines if line.strip().startswith('#'))
+            comment_ratio = comment_lines / max(loc, 1)
+            
+            # Parse AST
+            try:
+                tree = ast.parse(content)
+            except SyntaxError:
+                # Can't parse, return basic metrics
+                return FileMetrics(
+                    path=relative_path,
+                    loc=loc,
+                    sloc=sloc,
+                    cyclomatic_max=1,
+                    cyclomatic_avg=1.0,
+                    fn_count=0,
+                    class_count=0,
+                    nesting_max=0,
+                    dup_ratio=0.0,
+                    comment_ratio=comment_ratio,
+                    language="python"
+                ), []
+            
+            # Count functions and classes
+            functions = [node for node in ast.walk(tree) 
+                        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))]
+            classes = [node for node in ast.walk(tree) if isinstance(node, ast.ClassDef)]
+            
+            # Calculate complexity for each function
+            complexities = []
+            for func in functions:
+                visitor = CyclomaticComplexityVisitor()
+                visitor.visit(func)
+                complexities.append(visitor.complexity)
+            
+            cyclomatic_max = max(complexities) if complexities else 1
+            cyclomatic_avg = sum(complexities) / len(complexities) if complexities else 1.0
+            
+            # Calculate nesting depth
+            nesting_visitor = NestingVisitor()
+            nesting_visitor.visit(tree)
+            nesting_max = nesting_visitor.max_depth
+            
+            # Detect code smells
+            smells = PythonAnalyzer._detect_smells(tree, lines, relative_path, functions, classes)
+            
+            metrics = FileMetrics(
+                path=relative_path,
+                loc=loc,
+                sloc=sloc,
+                cyclomatic_max=cyclomatic_max,
+                cyclomatic_avg=round(cyclomatic_avg, 2),
+                fn_count=len(functions),
+                class_count=len(classes),
+                nesting_max=nesting_max,
+                dup_ratio=0.0,  # Would need more sophisticated analysis
+                comment_ratio=round(comment_ratio, 3),
+                language="python"
+            )
+            
+            return metrics, smells
+            
+        except Exception as e:
+            print(f"Error analyzing {relative_path}: {e}")
+            return None, []
+    
+    @staticmethod
+    def _detect_smells(tree: ast.AST, lines: List[str], path: str, 
+                       functions: List[ast.AST], classes: List[ast.AST]) -> List[CodeSmell]:
+        """Detect code smells in Python code."""
+        smells = []
+        
+        for func in functions:
+            func_name = func.name
+            func_lines = func.end_lineno - func.lineno + 1 if hasattr(func, 'end_lineno') else 50
+            
+            # Long function
+            if func_lines > 50:
+                severity = 5 if func_lines > 100 else 4 if func_lines > 75 else 3
+                smells.append(CodeSmell(
+                    path=path,
+                    type="Long Function",
+                    severity=severity,
+                    line=func.lineno,
+                    message=f"Function '{func_name}' has {func_lines} lines (recommended: <50)",
+                    suggestion=f"Consider breaking '{func_name}' into smaller functions"
+                ))
+            
+            # High complexity
+            visitor = CyclomaticComplexityVisitor()
+            visitor.visit(func)
+            if visitor.complexity > 10:
+                severity = 5 if visitor.complexity > 20 else 4 if visitor.complexity > 15 else 3
+                smells.append(CodeSmell(
+                    path=path,
+                    type="High Complexity",
+                    severity=severity,
+                    line=func.lineno,
+                    message=f"Function '{func_name}' has cyclomatic complexity of {visitor.complexity} (recommended: <10)",
+                    suggestion="Reduce branching by extracting conditions into helper functions"
+                ))
+            
+            # Too many parameters
+            num_args = len(func.args.args) + len(func.args.posonlyargs) + len(func.args.kwonlyargs)
+            if num_args > 5:
+                severity = 4 if num_args > 7 else 3
+                smells.append(CodeSmell(
+                    path=path,
+                    type="Too Many Parameters",
+                    severity=severity,
+                    line=func.lineno,
+                    message=f"Function '{func_name}' has {num_args} parameters (recommended: ≤5)",
+                    suggestion="Consider using a data class or dictionary to group related parameters"
+                ))
+        
+        # Deep nesting
+        nesting_visitor = NestingVisitor()
+        nesting_visitor.visit(tree)
+        if nesting_visitor.max_depth > 4:
+            severity = 5 if nesting_visitor.max_depth > 6 else 4 if nesting_visitor.max_depth > 5 else 3
+            smells.append(CodeSmell(
+                path=path,
+                type="Deep Nesting",
+                severity=severity,
+                line=1,
+                message=f"Maximum nesting depth is {nesting_visitor.max_depth} (recommended: ≤4)",
+                suggestion="Use early returns, guard clauses, or extract nested logic into functions"
+            ))
+        
+        # God class (too many methods)
+        for cls in classes:
+            methods = [node for node in ast.walk(cls) 
+                      if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))]
+            if len(methods) > 20:
+                severity = 4 if len(methods) > 30 else 3
+                smells.append(CodeSmell(
+                    path=path,
+                    type="God Class",
+                    severity=severity,
+                    line=cls.lineno,
+                    message=f"Class '{cls.name}' has {len(methods)} methods (recommended: ≤20)",
+                    suggestion="Consider splitting into smaller, focused classes using composition"
+                ))
+        
+        # Missing docstrings
+        for func in functions:
+            if not ast.get_docstring(func):
+                smells.append(CodeSmell(
+                    path=path,
+                    type="Missing Docstring",
+                    severity=2,
+                    line=func.lineno,
+                    message=f"Function '{func.name}' lacks a docstring",
+                    suggestion="Add a docstring describing the function's purpose, parameters, and return value"
+                ))
+        
+        return smells
+
+
+class JavaScriptAnalyzer:
+    """Basic analyzer for JavaScript/TypeScript files."""
+    
+    @staticmethod
+    def analyze_file(file_path: Path, relative_path: str) -> tuple[Optional[FileMetrics], List[CodeSmell]]:
+        """Analyze a JavaScript/TypeScript file."""
+        try:
+            content = file_path.read_text(encoding='utf-8', errors='ignore')
+            lines = content.split('\n')
+            
+            loc = len(lines)
+            sloc = sum(1 for line in lines if line.strip() and not line.strip().startswith('//'))
+            comment_lines = sum(1 for line in lines if line.strip().startswith('//'))
+            comment_ratio = comment_lines / max(loc, 1)
+            
+            # Count functions (basic regex-based)
+            fn_patterns = [
+                r'function\s+\w+',
+                r'const\s+\w+\s*=\s*(?:async\s*)?\(',
+                r'(?:async\s+)?(\w+)\s*\([^)]*\)\s*{',
+                r'=>',
+            ]
+            fn_count = sum(len(re.findall(p, content)) for p in fn_patterns[:3])
+            
+            # Count classes
+            class_count = len(re.findall(r'class\s+\w+', content))
+            
+            # Estimate complexity (count decision points)
+            decision_keywords = ['if', 'else', 'for', 'while', 'switch', 'case', 'catch', '&&', '||', '?']
+            complexity = 1 + sum(content.count(kw) for kw in decision_keywords)
+            
+            # Estimate nesting (count bracket depth)
+            max_depth = 0
+            current_depth = 0
+            for char in content:
+                if char == '{':
+                    current_depth += 1
+                    max_depth = max(max_depth, current_depth)
+                elif char == '}':
+                    current_depth = max(0, current_depth - 1)
+            
+            smells = JavaScriptAnalyzer._detect_smells(content, lines, relative_path)
+            
+            metrics = FileMetrics(
+                path=relative_path,
+                loc=loc,
+                sloc=sloc,
+                cyclomatic_max=min(complexity, 50),
+                cyclomatic_avg=min(complexity / max(fn_count, 1), 20),
+                fn_count=fn_count,
+                class_count=class_count,
+                nesting_max=max_depth,
+                dup_ratio=0.0,
+                comment_ratio=round(comment_ratio, 3),
+                language="javascript" if relative_path.endswith('.js') else "typescript"
+            )
+            
+            return metrics, smells
+            
+        except Exception as e:
+            print(f"Error analyzing {relative_path}: {e}")
+            return None, []
+    
+    @staticmethod
+    def _detect_smells(content: str, lines: List[str], path: str) -> List[CodeSmell]:
+        """Detect code smells in JavaScript/TypeScript."""
+        smells = []
+        
+        # Long file
+        if len(lines) > 300:
+            severity = 4 if len(lines) > 500 else 3
+            smells.append(CodeSmell(
+                path=path,
+                type="Long File",
+                severity=severity,
+                line=1,
+                message=f"File has {len(lines)} lines (recommended: <300)",
+                suggestion="Consider splitting into multiple modules"
+            ))
+        
+        # Console.log statements (likely debug code)
+        console_matches = list(re.finditer(r'console\.(log|warn|error)', content))
+        if len(console_matches) > 5:
+            smells.append(CodeSmell(
+                path=path,
+                type="Debug Code",
+                severity=2,
+                line=1,
+                message=f"Found {len(console_matches)} console statements",
+                suggestion="Remove or replace with proper logging"
+            ))
+        
+        # TODO/FIXME comments
+        todo_pattern = re.compile(r'(TODO|FIXME|HACK|XXX)', re.IGNORECASE)
+        for i, line in enumerate(lines, 1):
+            if todo_pattern.search(line):
+                smells.append(CodeSmell(
+                    path=path,
+                    type="TODO Comment",
+                    severity=2,
+                    line=i,
+                    message="Unresolved TODO/FIXME comment",
+                    suggestion="Address or remove the TODO comment"
+                ))
+        
+        return smells
+
+
+class RepoAnalyzer:
+    """Main repository analyzer that clones and analyzes GitHub repositories."""
+    
+    SUPPORTED_EXTENSIONS = {
+        '.py': PythonAnalyzer,
+        '.js': JavaScriptAnalyzer,
+        '.jsx': JavaScriptAnalyzer,
+        '.ts': JavaScriptAnalyzer,
+        '.tsx': JavaScriptAnalyzer,
+    }
+    
+    IGNORED_DIRS = {
+        'node_modules', '.git', '__pycache__', '.venv', 'venv', 
+        'env', '.env', 'dist', 'build', '.next', 'coverage',
+        '.pytest_cache', '.mypy_cache', 'eggs', '*.egg-info'
+    }
+    
+    def __init__(self):
+        self.temp_dir: Optional[Path] = None
+        
+    async def analyze_github_repo(self, github_url: str) -> Dict[str, Any]:
+        """Clone and analyze a GitHub repository."""
+        try:
+            # Create temp directory path (but don't create it - git clone will do that)
+            temp_base = Path(tempfile.gettempdir())
+            self.temp_dir = temp_base / f"codesensex_{os.urandom(8).hex()}"
+            
+            print(f"🔍 Cloning {github_url} to {self.temp_dir}...", flush=True)
+            
+            # Clone repository
+            clone_success = await self._clone_repo(github_url)
+            if not clone_success:
+                print(f"❌ Failed to clone {github_url}", flush=True)
+                return {"error": "Failed to clone repository", "metrics": [], "risks": [], "smells": []}
+            
+            print(f"✅ Clone successful, analyzing files...", flush=True)
+            
+            # Find all analyzable files
+            all_metrics: List[FileMetrics] = []
+            all_smells: List[CodeSmell] = []
+            
+            for file_path in self._find_files():
+                ext = file_path.suffix.lower()
+                if ext in self.SUPPORTED_EXTENSIONS:
+                    analyzer = self.SUPPORTED_EXTENSIONS[ext]
+                    relative_path = str(file_path.relative_to(self.temp_dir))
+                    
+                    metrics, smells = analyzer.analyze_file(file_path, relative_path)
+                    if metrics:
+                        all_metrics.append(metrics)
+                    all_smells.extend(smells)
+            
+            # Calculate risk scores
+            risks = self._calculate_risks(all_metrics, all_smells)
+            
+            return {
+                "metrics": [asdict(m) for m in all_metrics],
+                "risks": [asdict(r) for r in risks],
+                "smells": [asdict(s) for s in all_smells],
+                "summary": {
+                    "total_files": len(all_metrics),
+                    "total_loc": sum(m.loc for m in all_metrics),
+                    "total_smells": len(all_smells),
+                    "languages": list(set(m.language for m in all_metrics))
+                }
+            }
+            
+        finally:
+            # Cleanup
+            if self.temp_dir and self.temp_dir.exists():
+                shutil.rmtree(self.temp_dir, ignore_errors=True)
+    
+    async def _clone_repo(self, github_url: str) -> bool:
+        """Clone a GitHub repository."""
+        try:
+            # Clean URL
+            url = github_url.strip()
+            if not url.endswith('.git'):
+                url = url.rstrip('/') + '.git'
+            
+            print(f"  Running: git clone --depth 1 {url} {self.temp_dir}", flush=True)
+            
+            # Clone with depth=1 for speed
+            result = subprocess.run(
+                ['git', 'clone', '--depth', '1', url, str(self.temp_dir)],
+                capture_output=True,
+                text=True,
+                timeout=120
+            )
+            
+            if result.returncode != 0:
+                print(f"  Git stderr: {result.stderr}", flush=True)
+            
+            return result.returncode == 0
+            
+        except subprocess.TimeoutExpired:
+            print("  Clone timed out after 120 seconds", flush=True)
+            return False
+        except FileNotFoundError:
+            print("  Error: git command not found. Make sure git is installed.", flush=True)
+            return False
+        except Exception as e:
+            print(f"  Clone error: {e}", flush=True)
+            return False
+    
+    def _find_files(self) -> List[Path]:
+        """Find all analyzable files in the repository."""
+        files = []
+        
+        for file_path in self.temp_dir.rglob('*'):
+            if not file_path.is_file():
+                continue
+                
+            # Skip ignored directories
+            if any(ignored in file_path.parts for ignored in self.IGNORED_DIRS):
+                continue
+                
+            # Only include supported extensions
+            if file_path.suffix.lower() in self.SUPPORTED_EXTENSIONS:
+                files.append(file_path)
+        
+        return files
+    
+    def _calculate_risks(self, metrics: List[FileMetrics], smells: List[CodeSmell]) -> List[RiskScore]:
+        """Calculate risk scores for each file based on metrics and smells."""
+        risks = []
+        
+        # Group smells by file
+        smells_by_file: Dict[str, List[CodeSmell]] = {}
+        for smell in smells:
+            if smell.path not in smells_by_file:
+                smells_by_file[smell.path] = []
+            smells_by_file[smell.path].append(smell)
+        
+        for m in metrics:
+            # Calculate risk score based on multiple factors
+            score = 0
+            top_features = []
+            
+            # Complexity contribution (0-30 points)
+            if m.cyclomatic_max > 20:
+                score += 30
+                top_features.append("cyclomatic_max")
+            elif m.cyclomatic_max > 15:
+                score += 25
+                top_features.append("cyclomatic_max")
+            elif m.cyclomatic_max > 10:
+                score += 20
+                top_features.append("cyclomatic_max")
+            elif m.cyclomatic_max > 5:
+                score += 10
+            
+            # Size contribution (0-20 points)
+            if m.loc > 500:
+                score += 20
+                top_features.append("loc")
+            elif m.loc > 300:
+                score += 15
+                top_features.append("loc")
+            elif m.loc > 200:
+                score += 10
+            
+            # Nesting contribution (0-20 points)
+            if m.nesting_max > 6:
+                score += 20
+                top_features.append("nesting_max")
+            elif m.nesting_max > 5:
+                score += 15
+                top_features.append("nesting_max")
+            elif m.nesting_max > 4:
+                score += 10
+            
+            # Code smells contribution (0-30 points)
+            file_smells = smells_by_file.get(m.path, [])
+            high_severity_smells = sum(1 for s in file_smells if s.severity >= 4)
+            if high_severity_smells > 3:
+                score += 30
+                top_features.append("code_smells")
+            elif high_severity_smells > 1:
+                score += 20
+                top_features.append("code_smells")
+            elif len(file_smells) > 5:
+                score += 15
+            elif len(file_smells) > 2:
+                score += 10
+            
+            # Determine tier
+            if score >= 80:
+                tier = "Critical"
+            elif score >= 60:
+                tier = "High"
+            elif score >= 40:
+                tier = "Medium"
+            else:
+                tier = "Low"
+            
+            risks.append(RiskScore(
+                path=m.path,
+                risk_score=min(score, 100),
+                tier=tier,
+                top_features=top_features[:3]
+            ))
+        
+        # Sort by risk score descending
+        risks.sort(key=lambda r: r.risk_score, reverse=True)
+        
+        return risks
+
+
+# Singleton instance
+repo_analyzer = RepoAnalyzer()

@@ -100,7 +100,8 @@ class InMemoryDB(DatabaseInterface):
     
     async def set_smells(self, project_id: str, smells: List[Dict[str, Any]]) -> None:
         for s in smells:
-            key = f"{project_id}:{s.get('file_path', '')}:{s.get('type', '')}"
+            file_path = s.get("path", s.get("file_path", ""))
+            key = f"{project_id}:{file_path}:{s.get('type', '')}:{s.get('line', 0)}"
             s['project_id'] = project_id
             self.smells[key] = s
     
@@ -222,7 +223,12 @@ class MongoDBAtlas(DatabaseInterface):
         if not self._connected:
             await self.connect()
         cursor = self._db.file_metrics.find({"project_id": project_id})
-        return await cursor.to_list(length=1000)
+        results = await cursor.to_list(length=1000)
+        # Convert ObjectId to string for JSON serialization
+        for r in results:
+            if '_id' in r:
+                r['_id'] = str(r['_id'])
+        return results
     
     async def set_risks(self, project_id: str, risks: List[Dict[str, Any]]) -> None:
         if not self._connected:
@@ -240,7 +246,12 @@ class MongoDBAtlas(DatabaseInterface):
         if not self._connected:
             await self.connect()
         cursor = self._db.risks.find({"project_id": project_id}).sort("risk_score", -1)
-        return await cursor.to_list(length=1000)
+        results = await cursor.to_list(length=1000)
+        # Convert ObjectId to string for JSON serialization
+        for r in results:
+            if '_id' in r:
+                r['_id'] = str(r['_id'])
+        return results
     
     async def set_smells(self, project_id: str, smells: List[Dict[str, Any]]) -> None:
         if not self._connected:
@@ -248,8 +259,9 @@ class MongoDBAtlas(DatabaseInterface):
         
         for s in smells:
             s['project_id'] = project_id
+            file_path = s.get("path", s.get("file_path", ""))
             await self._db.smells.update_one(
-                {"project_id": project_id, "file_path": s.get("file_path", ""), "type": s.get("type", "")},
+                {"project_id": project_id, "path": file_path, "type": s.get("type", ""), "line": s.get("line", 0)},
                 {"$set": s},
                 upsert=True
             )
@@ -258,15 +270,27 @@ class MongoDBAtlas(DatabaseInterface):
         if not self._connected:
             await self.connect()
         cursor = self._db.smells.find({"project_id": project_id})
-        return await cursor.to_list(length=1000)
+        results = await cursor.to_list(length=1000)
+        # Convert ObjectId to string for JSON serialization
+        for r in results:
+            if '_id' in r:
+                r['_id'] = str(r['_id'])
+        return results
 
+
+# Singleton database instance
+_db_instance: Optional[DatabaseInterface] = None
 
 def get_database() -> DatabaseInterface:
-    """Factory function to get the appropriate database instance."""
-    if USE_IN_MEMORY:
-        return InMemoryDB()
-    return MongoDBAtlas()
+    """Factory function to get the appropriate database instance (singleton)."""
+    global _db_instance
+    if _db_instance is None:
+        if USE_IN_MEMORY:
+            _db_instance = InMemoryDB()
+        else:
+            _db_instance = MongoDBAtlas()
+    return _db_instance
 
 
-# Global database instance
+# Global database instance for convenience
 db = get_database()
