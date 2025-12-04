@@ -1,18 +1,40 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { createRoot } from 'react-dom/client'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import './index.css'
 import Overview from './pages/Overview'
+import FileDetail from './pages/FileDetail'
+import CodeSmells from './pages/CodeSmells'
+import Heatmap from './pages/Heatmap'
 import BackendStatus from './components/BackendStatus'
 
+const NAV_ITEMS = [
+  { id: 'overview', label: 'Overview', icon: '📊' },
+  { id: 'heatmap', label: 'Heatmap', icon: '🗺️' },
+  { id: 'smells', label: 'Code Smells', icon: '🧪' }
+]
+
 function App(){
+  const [currentPage, setCurrentPage] = useState('overview')
+  const [selectedFile, setSelectedFile] = useState(null)
+
+  const handleFileSelect = (file) => {
+    setSelectedFile(file)
+    setCurrentPage('file-detail')
+  }
+
+  const handleBackFromFile = () => {
+    setSelectedFile(null)
+    setCurrentPage('overview')
+  }
+
   return (
     <div className="min-h-screen p-6 md:p-10">
       {/* Floating orbs background */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none -z-10">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-purple-500/20 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-pink-500/20 rounded-full blur-3xl animate-pulse delay-1000"></div>
-        <div className="absolute top-1/2 right-1/3 w-64 h-64 bg-indigo-500/20 rounded-full blur-3xl animate-pulse delay-500"></div>
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-teal-500/10 rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-cyan-500/10 rounded-full blur-3xl animate-pulse delay-1000"></div>
+        <div className="absolute top-1/2 right-1/3 w-64 h-64 bg-sky-500/10 rounded-full blur-3xl animate-pulse delay-500"></div>
       </div>
 
       {/* Header */}
@@ -22,17 +44,80 @@ function App(){
         className="flex items-center justify-between mb-8"
       >
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center text-xl shadow-lg glow">
+          <div 
+            onClick={() => { setCurrentPage('overview'); setSelectedFile(null); }}
+            className="w-10 h-10 rounded-xl bg-gradient-to-br from-teal-500 via-cyan-500 to-sky-500 flex items-center justify-center text-xl shadow-lg glow cursor-pointer hover:scale-110 transition-transform"
+          >
             🧠
           </div>
           <span className="text-xl font-bold gradient-text">CodeSenseX</span>
         </div>
+
+        {/* Navigation */}
+        <nav className="hidden md:flex items-center gap-1 glass rounded-full px-2 py-1">
+          {NAV_ITEMS.map((item) => (
+            <button
+              key={item.id}
+              onClick={() => { setCurrentPage(item.id); setSelectedFile(null); }}
+              className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                currentPage === item.id
+                  ? 'bg-white/10 text-white'
+                  : 'text-gray-400 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <span className="mr-2">{item.icon}</span>
+              {item.label}
+            </button>
+          ))}
+        </nav>
+
         <BackendStatus />
       </motion.header>
 
       {/* Main Content */}
       <main>
-        <Overview />
+        <AnimatePresence mode="wait">
+          {currentPage === 'overview' && (
+            <motion.div
+              key="overview"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 20 }}
+            >
+              <Overview onFileSelect={handleFileSelect} />
+            </motion.div>
+          )}
+          {currentPage === 'file-detail' && selectedFile && (
+            <motion.div
+              key="file-detail"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+            >
+              <FileDetail file={selectedFile} onBack={handleBackFromFile} />
+            </motion.div>
+          )}
+          {currentPage === 'heatmap' && (
+            <motion.div
+              key="heatmap"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 20 }}
+            >
+              <Heatmap />
+            </motion.div>
+          )}
+          {currentPage === 'smells' && (
+            <motion.div
+              key="smells"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 20 }}
+            >
+              <CodeSmells />
+            </motion.div>
+          )}
+        </AnimatePresence>
       </main>
 
       {/* Footer */}
@@ -42,7 +127,7 @@ function App(){
         transition={{ delay: 1 }}
         className="mt-16 text-center text-gray-500 text-sm"
       >
-        <p>Powered by AI + NLP • Built with ❤️ for better code</p>
+        <p>Powered by AI + NLP • Built for better code</p>
       </motion.footer>
     </div>
   )

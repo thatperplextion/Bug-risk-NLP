@@ -33,3 +33,19 @@ export async function startScan(projectId) {
   });
   return res.json();
 }
+
+export async function getSuggestions(fileId, limit = 5) {
+  const url = new URL(`${BASE_URL}/suggestions/${fileId}`);
+  if (limit) url.searchParams.set('limit', String(limit));
+  const res = await fetch(url);
+  return res.json();
+}
+
+export async function exportReport(projectId, sections = []) {
+  const res = await fetch(`${BASE_URL}/report/export`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ project_id: projectId, format: 'pdf', sections })
+  });
+  return res.blob();
+}

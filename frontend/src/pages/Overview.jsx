@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { getMetrics, getRisks, queueGithubRepo, startScan } from '../services/api'
+import { getMetrics, getRisks, queueGithubRepo, startScan, exportReport } from '../services/api'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area } from 'recharts'
 import { GlassCard, GradientButton, GlassInput, StatCard, RiskBadge, ProgressRing, Loader } from '../components/ui'
 
@@ -11,14 +11,14 @@ const CustomTooltip = ({ active, payload, label }) => {
     return (
       <div className="glass rounded-lg p-3 border border-white/20">
         <p className="text-sm text-gray-300">{label}</p>
-        <p className="text-lg font-bold text-purple-400">{payload[0].value}</p>
+        <p className="text-lg font-bold text-cyan-400">{payload[0].value}</p>
       </div>
     )
   }
   return null
 }
 
-export default function Overview() {
+export default function Overview({ onFileSelect }) {
   const [projectId, setProjectId] = useState('demo')
   const [metrics, setMetrics] = useState([])
   const [risks, setRisks] = useState([])
@@ -98,7 +98,7 @@ export default function Overview() {
           </div>
         </div>
         <div className="mt-4 flex items-center gap-4 text-sm text-gray-400">
-          <span>Project ID: <code className="text-purple-400">{projectId}</code></span>
+          <span>Project ID: <code className="text-cyan-400">{projectId}</code></span>
           {scanned && <span className="text-emerald-400">✓ Scanned</span>}
         </div>
       </GlassCard>
@@ -160,8 +160,8 @@ export default function Overview() {
                     <AreaChart data={metrics}>
                       <defs>
                         <linearGradient id="complexityGradient" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#8b5cf6" stopOpacity={0.8} />
-                          <stop offset="100%" stopColor="#8b5cf6" stopOpacity={0} />
+                          <stop offset="0%" stopColor="#06b6d4" stopOpacity={0.8} />
+                          <stop offset="100%" stopColor="#06b6d4" stopOpacity={0} />
                         </linearGradient>
                       </defs>
                       <XAxis dataKey="path" hide />
@@ -170,7 +170,7 @@ export default function Overview() {
                       <Area
                         type="monotone"
                         dataKey="cyclomatic_max"
-                        stroke="#8b5cf6"
+                        stroke="#06b6d4"
                         strokeWidth={3}
                         fill="url(#complexityGradient)"
                       />
@@ -279,10 +279,11 @@ export default function Overview() {
                           initial={{ opacity: 0, x: -20 }}
                           animate={{ opacity: 1, x: 0 }}
                           transition={{ delay: 0.1 * i }}
+                          onClick={() => onFileSelect && onFileSelect({ ...m, ...risk })}
                           className="border-b border-white/5 hover:bg-white/5 transition-colors cursor-pointer"
                         >
                           <td className="py-4 px-4">
-                            <span className="text-purple-400">📄</span>
+                            <span className="text-cyan-400">📄</span>
                             <span className="ml-2">{m.path}</span>
                           </td>
                           <td className="text-right py-4 px-4 font-mono text-gray-300">{m.loc}</td>

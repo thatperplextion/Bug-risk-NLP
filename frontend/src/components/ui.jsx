@@ -22,7 +22,7 @@ export function GradientButton({ children, onClick, className = '', size = 'md',
     lg: 'px-8 py-4 text-lg'
   }
   const variants = {
-    primary: 'bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 hover:from-indigo-600 hover:via-purple-600 hover:to-pink-600',
+    primary: 'bg-gradient-to-r from-teal-500 via-cyan-500 to-sky-500 hover:from-teal-600 hover:via-cyan-600 hover:to-sky-600',
     secondary: 'bg-white/10 hover:bg-white/20 border border-white/20',
     danger: 'bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600'
   }
@@ -46,7 +46,7 @@ export function GlassInput({ value, onChange, placeholder, className = '', icon 
         value={value}
         onChange={onChange}
         placeholder={placeholder}
-        className={`w-full glass rounded-xl ${icon ? 'pl-12' : 'pl-4'} pr-4 py-3 bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:border-purple-500/50 focus:ring-2 focus:ring-purple-500/20 transition-all duration-300`}
+        className={`w-full glass rounded-xl ${icon ? 'pl-12' : 'pl-4'} pr-4 py-3 bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:border-cyan-500/50 focus:ring-2 focus:ring-cyan-500/20 transition-all duration-300`}
       />
     </div>
   )
@@ -54,9 +54,9 @@ export function GlassInput({ value, onChange, placeholder, className = '', icon 
 
 export function StatCard({ label, value, icon, trend, color = 'purple', delay = 0 }) {
   const colors = {
-    purple: 'from-purple-500 to-indigo-500',
+    purple: 'from-teal-500 to-cyan-500',
     pink: 'from-pink-500 to-rose-500',
-    blue: 'from-blue-500 to-cyan-500',
+    blue: 'from-sky-500 to-blue-500',
     green: 'from-emerald-500 to-teal-500',
     orange: 'from-orange-500 to-amber-500',
     red: 'from-red-500 to-rose-500'
@@ -144,7 +144,7 @@ export function Loader() {
       <motion.div
         animate={{ rotate: 360 }}
         transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-        className="w-12 h-12 border-4 border-purple-500/30 border-t-purple-500 rounded-full"
+        className="w-12 h-12 border-4 border-cyan-500/30 border-t-cyan-500 rounded-full"
       />
     </div>
   )
