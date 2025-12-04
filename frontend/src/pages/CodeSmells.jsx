@@ -18,22 +18,23 @@ const CustomTooltip = ({ active, payload }) => {
   return null
 }
 
-export default function CodeSmells({ projectId }) {
+export default function CodeSmells({ projectId, onFileSelect }) {
   const [smells, setSmells] = useState([])
   const [smellTypes, setSmellTypes] = useState([])
   const [stats, setStats] = useState({ total: 0, affectedFiles: 0 })
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    if (projectId) {
-      loadSmells()
+    if (projectId && projectId !== 'demo') {
+      loadSmells(projectId)
     }
   }, [projectId])
 
-  const loadSmells = async () => {
+  const loadSmells = async (pid) => {
     setLoading(true)
     try {
-      const data = await getSmells(projectId)
+      const data = await getSmells(pid)
+      console.log('CodeSmells loaded:', data)
       setSmells(data.items || [])
       setStats({
         total: data.total || 0,

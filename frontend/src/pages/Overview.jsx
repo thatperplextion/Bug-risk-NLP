@@ -18,7 +18,7 @@ const CustomTooltip = ({ active, payload, label }) => {
   return null
 }
 
-export default function Overview({ onFileSelect }) {
+export default function Overview({ onFileSelect, onProjectChange }) {
   const [projectId, setProjectId] = useState(() => localStorage.getItem('codesensex_project') || 'demo')
   const [metrics, setMetrics] = useState([])
   const [risks, setRisks] = useState([])
@@ -27,6 +27,14 @@ export default function Overview({ onFileSelect }) {
   const [loading, setLoading] = useState(false)
   const [scanned, setScanned] = useState(false)
   const [scanStatus, setScanStatus] = useState('')
+
+  const updateProjectId = (newId) => {
+    setProjectId(newId)
+    localStorage.setItem('codesensex_project', newId)
+    if (onProjectChange) {
+      onProjectChange(newId)
+    }
+  }
 
   const loadData = async (pid) => {
     const id = pid || projectId
@@ -64,8 +72,7 @@ export default function Overview({ onFileSelect }) {
       }
       
       if (queued.project_id) {
-        setProjectId(queued.project_id)
-        localStorage.setItem('codesensex_project', queued.project_id)
+        updateProjectId(queued.project_id)
         setScanStatus('Cloning and analyzing repository... This may take 1-2 minutes.')
         
         console.log('Starting scan for project:', queued.project_id)

@@ -24,21 +24,22 @@ function getTier(risk) {
   return 'Low'
 }
 
-export default function Heatmap({ projectId }) {
+export default function Heatmap({ projectId, onFileSelect }) {
   const [risks, setRisks] = useState([])
   const [selectedFolder, setSelectedFolder] = useState(null)
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    if (projectId) {
-      loadRisks()
+    if (projectId && projectId !== 'demo') {
+      loadRisks(projectId)
     }
   }, [projectId])
 
-  const loadRisks = async () => {
+  const loadRisks = async (pid) => {
     setLoading(true)
     try {
-      const data = await getRisks(projectId, null, 100)
+      const data = await getRisks(pid, null, 100)
+      console.log('Heatmap risks loaded:', data)
       setRisks(data.items || [])
     } catch (err) {
       console.error('Failed to load risks:', err)
@@ -52,7 +53,9 @@ export default function Heatmap({ projectId }) {
     
     risks.forEach(risk => {
       const path = risk.path || ''
-      const parts = path.split('/')
+      // Handle both forward slashes and backslashes
+      const normalizedPath = path.replace(/\\/g, '/')
+      const parts = normalizedPath.split('/')
       const fileName = parts.pop()
       const folderPath = parts.join('/') || 'root'
       

@@ -17,6 +17,7 @@ const NAV_ITEMS = [
 function App(){
   const [currentPage, setCurrentPage] = useState('overview')
   const [selectedFile, setSelectedFile] = useState(null)
+  const [projectId, setProjectId] = useState(() => localStorage.getItem('codesensex_project') || '')
 
   const handleFileSelect = (file) => {
     setSelectedFile(file)
@@ -26,6 +27,11 @@ function App(){
   const handleBackFromFile = () => {
     setSelectedFile(null)
     setCurrentPage('overview')
+  }
+
+  const handleProjectChange = (newProjectId) => {
+    setProjectId(newProjectId)
+    localStorage.setItem('codesensex_project', newProjectId)
   }
 
   return (
@@ -84,7 +90,7 @@ function App(){
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: 20 }}
             >
-              <Overview onFileSelect={handleFileSelect} />
+              <Overview onFileSelect={handleFileSelect} onProjectChange={handleProjectChange} />
             </motion.div>
           )}
           {currentPage === 'file-detail' && selectedFile && (
@@ -94,7 +100,7 @@ function App(){
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
             >
-              <FileDetail file={selectedFile} onBack={handleBackFromFile} />
+              <FileDetail file={selectedFile} onBack={handleBackFromFile} projectId={projectId} />
             </motion.div>
           )}
           {currentPage === 'heatmap' && (
@@ -104,7 +110,7 @@ function App(){
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: 20 }}
             >
-              <Heatmap />
+              <Heatmap projectId={projectId} onFileSelect={handleFileSelect} />
             </motion.div>
           )}
           {currentPage === 'smells' && (
@@ -114,7 +120,7 @@ function App(){
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: 20 }}
             >
-              <CodeSmells />
+              <CodeSmells projectId={projectId} onFileSelect={handleFileSelect} />
             </motion.div>
           )}
         </AnimatePresence>
