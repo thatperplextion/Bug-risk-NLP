@@ -90,7 +90,7 @@ function App(){
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: 20 }}
             >
-              <Overview onFileSelect={handleFileSelect} onProjectChange={handleProjectChange} />
+              <Overview projectId={projectId} onFileSelect={handleFileSelect} onProjectChange={handleProjectChange} />
             </motion.div>
           )}
           {currentPage === 'file-detail' && selectedFile && (

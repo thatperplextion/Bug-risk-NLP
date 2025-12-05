@@ -18,8 +18,8 @@ const CustomTooltip = ({ active, payload, label }) => {
   return null
 }
 
-export default function Overview({ onFileSelect, onProjectChange }) {
-  const [projectId, setProjectId] = useState('')
+export default function Overview({ projectId: parentProjectId, onFileSelect, onProjectChange }) {
+  const [projectId, setProjectId] = useState(parentProjectId || '')
   const [metrics, setMetrics] = useState([])
   const [risks, setRisks] = useState([])
   const [summary, setSummary] = useState({ avg_risk: 0, high: 0, critical: 0 })
@@ -28,14 +28,6 @@ export default function Overview({ onFileSelect, onProjectChange }) {
   const [scanned, setScanned] = useState(false)
   const [scanStatus, setScanStatus] = useState('')
   const [hasPreviousScan, setHasPreviousScan] = useState(false)
-
-  // Check if there's a previous scan on mount (but don't auto-load)
-  useEffect(() => {
-    const savedProjectId = localStorage.getItem('codesensex_project')
-    if (savedProjectId && savedProjectId !== 'demo' && savedProjectId !== '') {
-      setHasPreviousScan(true)
-    }
-  }, [])
 
   const updateProjectId = (newId) => {
     setProjectId(newId)
@@ -67,6 +59,25 @@ export default function Overview({ onFileSelect, onProjectChange }) {
       setLoading(false)
     }
   }
+
+  // Sync with parent projectId and load data if we have a valid project
+  useEffect(() => {
+    if (parentProjectId && parentProjectId !== 'demo' && parentProjectId !== '') {
+      setProjectId(parentProjectId)
+      // If parent has a projectId but we don't have data, load it
+      if (metrics.length === 0 && !loading) {
+        loadData(parentProjectId)
+      }
+    }
+  }, [parentProjectId])
+
+  // Check if there's a previous scan on mount (but don't auto-load)
+  useEffect(() => {
+    const savedProjectId = localStorage.getItem('codesensex_project')
+    if (savedProjectId && savedProjectId !== 'demo' && savedProjectId !== '') {
+      setHasPreviousScan(true)
+    }
+  }, [])
 
   const loadPreviousScan = async () => {
     const savedProjectId = localStorage.getItem('codesensex_project')
