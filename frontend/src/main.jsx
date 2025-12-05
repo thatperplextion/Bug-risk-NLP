@@ -61,17 +61,39 @@ function App(){
 
         {/* Navigation */}
         <nav className="hidden md:flex items-center gap-2 glass rounded-full px-3 py-2">
-          {NAV_ITEMS.map((item) => (
-            <button
+          {NAV_ITEMS.map((item, index) => (
+            <motion.button
               key={item.id}
               onClick={() => { setCurrentPage(item.id); setSelectedFile(null); }}
-              className={`btn-thin ${
+              className={`nav-btn-animated ${
                 currentPage === item.id ? 'active' : ''
               }`}
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.1 }}
+              whileHover={{ 
+                scale: 1.08,
+                y: -2,
+                transition: { type: 'spring', stiffness: 400, damping: 10 }
+              }}
+              whileTap={{ scale: 0.95 }}
             >
-              <span className="mr-2">{item.icon}</span>
+              <motion.span 
+                className="mr-2 inline-block"
+                whileHover={{ rotate: [0, -10, 10, -10, 0], transition: { duration: 0.5 } }}
+              >
+                {item.icon}
+              </motion.span>
               {item.label}
-            </button>
+              {currentPage === item.id && (
+                <motion.div
+                  className="absolute bottom-0 left-1/2 w-1/2 h-0.5 bg-gradient-to-r from-teal-400 to-cyan-400 rounded-full"
+                  layoutId="activeTab"
+                  initial={{ x: '-50%' }}
+                  style={{ x: '-50%' }}
+                />
+              )}
+            </motion.button>
           ))}
         </nav>
 

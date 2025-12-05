@@ -22,15 +22,28 @@ export function GradientButton({ children, onClick, className = '', size = 'md',
     lg: 'px-8 py-4 text-lg'
   }
   
-  // Primary uses blob style, secondary uses magnetic style
+  // Primary uses blob style with enhanced animations
   if (variant === 'primary') {
     return (
       <motion.button
-        whileTap={{ scale: 0.95 }}
         onClick={onClick}
         className={`btn-blob btn-ripple ${sizes[size]} ${className}`}
+        whileHover={{ 
+          scale: 1.05,
+          y: -3,
+          transition: { type: 'spring', stiffness: 400, damping: 10 }
+        }}
+        whileTap={{ scale: 0.95, y: 0 }}
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
       >
-        {children}
+        <motion.span 
+          className="relative z-10 flex items-center gap-2"
+          whileHover={{ x: [0, -2, 2, 0], transition: { duration: 0.3 } }}
+        >
+          {children}
+        </motion.span>
       </motion.button>
     )
   }
@@ -38,9 +51,13 @@ export function GradientButton({ children, onClick, className = '', size = 'md',
   if (variant === 'secondary') {
     return (
       <motion.button
-        whileTap={{ scale: 0.95 }}
         onClick={onClick}
         className={`btn-magnetic btn-ripple ${sizes[size]} ${className}`}
+        whileHover={{ 
+          scale: 1.03,
+          transition: { type: 'spring', stiffness: 300, damping: 15 }
+        }}
+        whileTap={{ scale: 0.97 }}
       >
         <span className="relative z-10">{children}</span>
       </motion.button>
@@ -50,7 +67,7 @@ export function GradientButton({ children, onClick, className = '', size = 'md',
   // Danger variant
   return (
     <motion.button
-      whileHover={{ scale: 1.05 }}
+      whileHover={{ scale: 1.05, boxShadow: '0 10px 30px rgba(239, 68, 68, 0.4)' }}
       whileTap={{ scale: 0.95 }}
       onClick={onClick}
       className={`${sizes[size]} bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600 rounded-xl font-semibold text-white shadow-lg transition-all duration-300 btn-ripple ${className}`}
