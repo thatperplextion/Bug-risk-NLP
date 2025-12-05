@@ -7,8 +7,8 @@ export function GlassCard({ children, className = '', hover = true, glow = false
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, delay }}
-      whileHover={hover ? { scale: 1.02, y: -5 } : {}}
-      className={`glass rounded-2xl p-6 ${hover ? 'glass-hover cursor-pointer' : ''} ${glow ? 'glow' : ''} ${className}`}
+      whileHover={hover ? { scale: 1.01, y: -3 } : {}}
+      className={`glass-card rounded-2xl p-6 ${hover ? 'cursor-pointer' : ''} ${glow ? 'glow' : ''} ${className}`}
     >
       {children}
     </motion.div>
@@ -89,12 +89,12 @@ export function GlassInput({ value, onChange, placeholder, className = '', icon 
 
 export function StatCard({ label, value, icon, trend, color = 'purple', delay = 0 }) {
   const colors = {
-    purple: 'bg-[var(--accent-primary)]',
-    pink: 'bg-pink-500',
-    blue: 'bg-blue-500',
-    green: 'bg-emerald-500',
-    orange: 'bg-orange-500',
-    red: 'bg-red-500'
+    purple: 'bg-gradient-to-br from-emerald-500 to-teal-600',
+    pink: 'bg-gradient-to-br from-pink-500 to-rose-600',
+    blue: 'bg-gradient-to-br from-blue-500 to-indigo-600',
+    green: 'bg-gradient-to-br from-emerald-500 to-green-600',
+    orange: 'bg-gradient-to-br from-orange-500 to-amber-600',
+    red: 'bg-gradient-to-br from-red-500 to-rose-600'
   }
   
   const textColors = {
@@ -106,14 +106,23 @@ export function StatCard({ label, value, icon, trend, color = 'purple', delay = 
     red: 'text-red-400'
   }
   
+  const glowColors = {
+    purple: 'shadow-emerald-500/20',
+    pink: 'shadow-pink-500/20',
+    blue: 'shadow-blue-500/20',
+    green: 'shadow-emerald-500/20',
+    orange: 'shadow-orange-500/20',
+    red: 'shadow-red-500/20'
+  }
+  
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, delay }}
-      className="glass rounded-xl p-5 glass-hover"
+      className="glass-card p-5"
     >
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between relative z-10">
         <div>
           <p className="text-[var(--text-secondary)] text-sm font-medium">{label}</p>
           <p className={`text-2xl font-bold mt-1 ${textColors[color]}`}>{value}</p>
@@ -123,7 +132,7 @@ export function StatCard({ label, value, icon, trend, color = 'purple', delay = 
             </p>
           )}
         </div>
-        <div className={`w-12 h-12 rounded-xl ${colors[color]} flex items-center justify-center text-xl`}>
+        <div className={`w-12 h-12 rounded-xl ${colors[color]} flex items-center justify-center text-xl shadow-lg ${glowColors[color]}`}>
           {icon}
         </div>
       </div>
@@ -188,7 +197,7 @@ export function Loader() {
       <motion.div
         animate={{ rotate: 360 }}
         transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }}
-        className="w-8 h-8 border-2 border-[var(--border-default)] border-t-[var(--accent-primary)] rounded-full"
+        className="w-10 h-10 border-2 border-[var(--border-default)] border-t-[var(--accent-primary)] rounded-full shadow-lg shadow-emerald-500/20"
       />
     </div>
   )

@@ -31,30 +31,37 @@ function App(){
 
   const handleProjectChange = (newProjectId) => {
     setProjectId(newProjectId)
-    localStorage.setItem('codesensex_project', newProjectId)
+    localStorage.setItem('deeplynctus_project', newProjectId)
   }
 
   return (
-    <div className="min-h-screen p-4 md:p-8 lg:p-10 max-w-7xl mx-auto">
-      {/* Header - Clean GitHub/ChatGPT style */}
+    <div className="min-h-screen p-4 md:p-8 lg:p-10 max-w-7xl mx-auto relative">
+      {/* Floating Orbs Background Animation */}
+      <div className="floating-orbs">
+        <div className="orb orb-1"></div>
+        <div className="orb orb-2"></div>
+        <div className="orb orb-3"></div>
+      </div>
+      
+      {/* Header - Clean GitHub/ChatGPT style with glass effect */}
       <motion.header
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
-        className="flex items-center justify-between mb-8 pb-4 border-b border-[var(--border-subtle)]"
+        className="flex items-center justify-between mb-8 pb-4 px-6 py-4 rounded-2xl glass-header relative"
       >
         <div className="flex items-center gap-3">
           <div 
             onClick={() => { setCurrentPage('overview'); setSelectedFile(null); }}
-            className="w-9 h-9 rounded-lg bg-[var(--accent-primary)] flex items-center justify-center text-lg cursor-pointer hover:opacity-90 transition-opacity"
+            className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-lg cursor-pointer hover:scale-105 transition-all shadow-lg shadow-emerald-500/20"
           >
             🧠
           </div>
-          <span className="text-lg font-semibold text-[var(--text-primary)]">CodeSenseX</span>
+          <span className="text-lg font-semibold text-[var(--text-primary)] tracking-tight">Deep Lynctus</span>
         </div>
 
-        {/* Navigation - Clean pill style */}
-        <nav className="hidden md:flex items-center gap-1 nav-glass-container rounded-lg px-1 py-1">
+        {/* Navigation - Premium glass with animated border */}
+        <nav className="hidden md:flex items-center gap-1.5 nav-glass-container nav-animated-border rounded-xl px-1.5 py-1.5">
           {NAV_ITEMS.map((item) => (
             <button
               key={item.id}
@@ -64,7 +71,7 @@ function App(){
               }`}
             >
               <span className="nav-icon">{item.icon}</span>
-              <span>{item.label}</span>
+              <span className="relative z-10">{item.label}</span>
             </button>
           ))}
         </nav>
@@ -125,7 +132,7 @@ function App(){
         transition={{ delay: 1 }}
         className="mt-16 text-center text-gray-500 text-sm"
       >
-        <p>Powered by AI + NLP • Built for better code</p>
+        <p>Deep Lynctus • Powered by AI + NLP</p>
       </motion.footer>
     </div>
   )

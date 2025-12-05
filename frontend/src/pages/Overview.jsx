@@ -31,7 +31,7 @@ export default function Overview({ projectId: parentProjectId, onFileSelect, onP
 
   const updateProjectId = (newId) => {
     setProjectId(newId)
-    localStorage.setItem('codesensex_project', newId)
+    localStorage.setItem('deeplynctus_project', newId)
     if (onProjectChange) {
       onProjectChange(newId)
     }
@@ -73,14 +73,14 @@ export default function Overview({ projectId: parentProjectId, onFileSelect, onP
 
   // Check if there's a previous scan on mount (but don't auto-load)
   useEffect(() => {
-    const savedProjectId = localStorage.getItem('codesensex_project')
+    const savedProjectId = localStorage.getItem('deeplynctus_project')
     if (savedProjectId && savedProjectId !== 'demo' && savedProjectId !== '') {
       setHasPreviousScan(true)
     }
   }, [])
 
   const loadPreviousScan = async () => {
-    const savedProjectId = localStorage.getItem('codesensex_project')
+    const savedProjectId = localStorage.getItem('deeplynctus_project')
     if (savedProjectId && savedProjectId !== 'demo' && savedProjectId !== '') {
       await loadData(savedProjectId)
     }
@@ -145,7 +145,7 @@ export default function Overview({ projectId: parentProjectId, onFileSelect, onP
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `codesensex-report-${projectId}.pdf`
+      a.download = `deeplynctus-report-${projectId}.pdf`
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
@@ -171,23 +171,28 @@ export default function Overview({ projectId: parentProjectId, onFileSelect, onP
 
   return (
     <div className="space-y-6">
-      {/* Hero Section - Clean & Focused */}
+      {/* Hero Section - Clean & Focused with glossy text */}
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
-        className="text-center py-6"
+        className="text-center py-8"
       >
         <h1 className="text-4xl md:text-5xl font-bold text-[var(--text-primary)] mb-3">
-          Code<span className="text-[var(--accent-primary)]">Sense</span>X
+          Deep <span className="gradient-text">Lynctus</span>
         </h1>
         <p className="text-[var(--text-secondary)] text-base max-w-xl mx-auto">
-          Intelligent Code Quality & Bug Risk Analyzer powered by AI + NLP
+          AI-Powered Code Quality & Bug Risk Analyzer
         </p>
       </motion.div>
 
-      {/* Input Section - Clean card */}
-      <GlassCard className="max-w-3xl mx-auto" delay={0.1}>
+      {/* Input Section - Premium animated card */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, delay: 0.1 }}
+        className="glass-card-animated max-w-3xl mx-auto p-6"
+      >
         <div className="flex flex-col md:flex-row gap-3">
           <GlassInput
             value={sourceRef}
@@ -207,7 +212,7 @@ export default function Overview({ projectId: parentProjectId, onFileSelect, onP
             )}
           </div>
         </div>
-        <div className="mt-3 flex items-center gap-4 text-sm text-[var(--text-secondary)] flex-wrap">
+        <div className="mt-3 flex items-center gap-4 text-sm text-[var(--text-secondary)] flex-wrap relative z-10">
           {projectId && <span>Project: <code className="text-[var(--accent-tertiary)] px-2 py-0.5 rounded-md bg-[var(--accent-primary)]/10 font-mono text-xs">{projectId}</code></span>}
           {scanned && <span className="text-[var(--accent-primary)] flex items-center gap-1.5"><span className="inline-block w-1.5 h-1.5 rounded-full bg-[var(--accent-primary)]"></span> Scanned</span>}
           {scanStatus && <span className="text-amber-400">{scanStatus}</span>}
@@ -220,7 +225,7 @@ export default function Overview({ projectId: parentProjectId, onFileSelect, onP
             </button>
           )}
         </div>
-      </GlassCard>
+      </motion.div>
 
       {loading && (
         <div className="text-center py-12">
@@ -229,16 +234,18 @@ export default function Overview({ projectId: parentProjectId, onFileSelect, onP
         </div>
       )}
 
-      {/* Empty State - Clean & focused */}
+      {/* Empty State - Clean & focused with glass effect */}
       {!scanned && !loading && (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
-          className="text-center py-20"
+          className="text-center py-16"
         >
-          <div className="w-16 h-16 mx-auto mb-6 rounded-2xl bg-[var(--bg-secondary)] border border-[var(--border-subtle)] flex items-center justify-center text-3xl">
-            🔍
+          <div className="glass-card inline-block p-4 mb-6">
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-500/20 to-teal-600/20 border border-emerald-500/30 flex items-center justify-center text-3xl shadow-lg shadow-emerald-500/10">
+              🔍
+            </div>
           </div>
           <h3 className="text-xl font-semibold text-[var(--text-primary)] mb-2">No Repository Scanned</h3>
           <p className="text-[var(--text-secondary)] max-w-md mx-auto mb-8 text-sm">
@@ -247,9 +254,9 @@ export default function Overview({ projectId: parentProjectId, onFileSelect, onP
           <div className="flex flex-col items-center gap-3">
             <p className="text-xs text-[var(--text-muted)] uppercase tracking-wide">Supported formats</p>
             <div className="flex flex-wrap justify-center gap-2">
-              <code className="px-3 py-1.5 rounded-lg bg-[var(--bg-secondary)] border border-[var(--border-subtle)] text-[var(--text-secondary)] text-xs font-mono">https://github.com/user/repo</code>
-              <code className="px-3 py-1.5 rounded-lg bg-[var(--bg-secondary)] border border-[var(--border-subtle)] text-[var(--text-secondary)] text-xs font-mono">github.com/user/repo</code>
-              <code className="px-3 py-1.5 rounded-lg bg-[var(--bg-secondary)] border border-[var(--border-subtle)] text-[var(--text-secondary)] text-xs font-mono">user/repo</code>
+              <code className="glass-card px-3 py-1.5 text-[var(--text-secondary)] text-xs font-mono">https://github.com/user/repo</code>
+              <code className="glass-card px-3 py-1.5 text-[var(--text-secondary)] text-xs font-mono">github.com/user/repo</code>
+              <code className="glass-card px-3 py-1.5 text-[var(--text-secondary)] text-xs font-mono">user/repo</code>
             </div>
           </div>
         </motion.div>

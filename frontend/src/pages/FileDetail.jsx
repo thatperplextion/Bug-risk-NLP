@@ -23,7 +23,7 @@ export default function FileDetail({ file, onBack, projectId }) {
   const [loadingSuggestions, setLoadingSuggestions] = useState(true)
 
   useEffect(() => {
-    const pid = projectId || localStorage.getItem('codesensex_project') || 'demo'
+    const pid = projectId || localStorage.getItem('deeplynctus_project') || 'demo'
     
     // Load smells for this file
     const loadSmells = async () => {
