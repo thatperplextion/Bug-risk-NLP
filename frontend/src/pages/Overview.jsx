@@ -196,26 +196,30 @@ export default function Overview({ projectId: parentProjectId, onFileSelect, onP
             icon="🔗"
           />
           <div className="flex gap-3">
-            <GradientButton onClick={queueAndScan} size="md">
-              🚀 Scan Repository
+            <GradientButton onClick={queueAndScan} size="md" className="scan-btn-premium">
+              <span className="rocket-icon">🚀</span> Scan Repository
             </GradientButton>
             {scanned && (
               <GradientButton onClick={() => loadData(projectId)} variant="secondary" size="md">
-                🔄 Refresh
+                <span className="refresh-icon">🔄</span> Refresh
               </GradientButton>
             )}
           </div>
         </div>
         <div className="mt-4 flex items-center gap-4 text-sm text-gray-400 flex-wrap">
-          {projectId && <span>Project ID: <code className="text-cyan-400">{projectId}</code></span>}
-          {scanned && <span className="text-emerald-400">✓ Scanned</span>}
+          {projectId && <span>Project ID: <code className="text-cyan-400 px-2 py-0.5 rounded bg-cyan-400/10">{projectId}</code></span>}
+          {scanned && <span className="text-emerald-400 flex items-center gap-1"><span className="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> Scanned</span>}
           {scanStatus && <span className="text-yellow-400 animate-pulse">{scanStatus}</span>}
           {hasPreviousScan && !scanned && (
             <button 
               onClick={loadPreviousScan}
-              className="text-cyan-400 hover:text-cyan-300 underline transition-colors"
+              className="previous-scan-link group flex items-center gap-2"
             >
-              Load previous scan results
+              <span className="inline-block transition-transform group-hover:-translate-x-1">←</span>
+              <span className="relative">
+                Load previous scan results
+                <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-gradient-to-r from-cyan-400 to-teal-400 transition-all duration-300 group-hover:w-full"></span>
+              </span>
             </button>
           )}
         </div>
