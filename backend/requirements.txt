@@ -15,10 +15,10 @@ scikit-learn==1.5.1
 xgboost==2.1.0
 numpy==1.26.4
 pandas==2.2.2
-shap==0.45.0
+# shap==0.45.0  # Commented out - causes slow builds, uncomment if needed locally
 
 # NLP
-transformers==4.44.0
+# transformers==4.44.0  # Commented out - not used, causes slow builds
 # torch==2.4.0  # Uncomment if using GPU-based models
 
 # Code Analysis
